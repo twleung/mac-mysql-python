@@ -37,7 +37,7 @@ embedded_server = (mysqlclient == 'mysqld')
 name = "MySQL-%s" % os.path.basename(sys.executable)
 if embedded_server:
     name = name + "-embedded"
-version = "1.1.10"
+version = "1.2.0"
 
 extra_objects = []
 
