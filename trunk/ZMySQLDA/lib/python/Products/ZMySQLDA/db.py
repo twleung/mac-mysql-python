@@ -88,7 +88,7 @@ __version__='$Revision$'[11:-2]
 
 import _mysql
 from _mysql_exceptions import OperationalError, NotSupportedError
-MySQLdb_version_required = (0,9,2)
+MySQLdb_version_required = (1,0,0)
 
 _v = getattr(_mysql, 'version_info', (0,0,0))
 if _v < MySQLdb_version_required:
@@ -105,11 +105,6 @@ from zLOG import LOG, ERROR, INFO
 import string, sys
 from string import strip, split, find, upper, rfind
 from time import time
-
-hosed_connection = (
-    CR.SERVER_GONE_ERROR,
-    CR.SERVER_LOST
-    )
 
 key_types = {
     "PRI": "PRIMARY KEY",
@@ -180,6 +175,7 @@ class DB(TM):
     conv[FIELD_TYPE.DATE] = DateTime_or_None
     conv[FIELD_TYPE.DECIMAL] = float
     del conv[FIELD_TYPE.TIME]
+    del conv[FIELD_TYPE.BLOB]
 
     _p_oid=_p_changed=_registered=None
 
@@ -202,12 +198,6 @@ class DB(TM):
             self._tlock = allocate_lock()
         self._lock = allocate_lock()
 
-    def __del__(self):
-        LOG("ZMySQLDA", INFO, "Closing connection %s: %s" \
-            % (self.db, self.connection))
-        self.db.close()
-        self.db = None
-        
     def _parse_connection_string(self, connection):
         kwargs = {'conv': self.conv}
         items = split(connection)
@@ -316,33 +306,26 @@ class DB(TM):
         result=()
         db=self.db
         try:
-            try:
-                self._lock.acquire()
-                for qs in filter(None, map(strip,split(query_string, '\0'))):
-                    qtype = upper(split(qs, None, 1)[0])
-                    if qtype == "SELECT" and max_rows:
-                        qs = "%s LIMIT %d" % (qs,max_rows)
-                        r=0
-                    db.query(qs)
-                    c=db.store_result()
-                    if desc is not None:
-                        if c and (c.describe() != desc):
-                            raise 'Query Error', (
-                                'Multiple select schema are not allowed'
-                                )
-                    if c:
-                        desc=c.describe()
-                        result=c.fetch_row(max_rows)
-                    else:
-                        desc=None
-            finally:
-                self._lock.release()
-                    
-        except OperationalError, m:
-            if m[0] not in hosed_connection: raise
-            # Hm. maybe the db is hosed.  Let's restart it.
-	    db=self.db=apply(self.Database_Connection, (), self.kwargs)
-            return self.query(query_string, max_rows)
+            self._lock.acquire()
+            for qs in filter(None, map(strip,split(query_string, '\0'))):
+                qtype = upper(split(qs, None, 1)[0])
+                if qtype == "SELECT" and max_rows:
+                    qs = "%s LIMIT %d" % (qs,max_rows)
+                    r=0
+                db.query(qs)
+                c=db.store_result()
+                if desc is not None:
+                    if c and (c.describe() != desc):
+                        raise 'Query Error', (
+                            'Multiple select schema are not allowed'
+                            )
+                if c:
+                    desc=c.describe()
+                    result=c.fetch_row(max_rows)
+                else:
+                    desc=None
+        finally:
+            self._lock.release()
 
         if desc is None: return (),()
 
@@ -363,6 +346,7 @@ class DB(TM):
     def _begin(self, *ignored):
         self._tlock.acquire()
         try:
+            self.db.ping()
             if self._transactions:
                 self.db.query("BEGIN")
                 self.db.store_result()
