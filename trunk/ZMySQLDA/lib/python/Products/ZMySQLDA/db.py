@@ -357,7 +357,7 @@ class DB(TM):
             LOG('ZMySQLDA', ERROR, "exception during _begin",
                 error=sys.exc_info())
             self._tlock.release()
-            raise
+            raise ConflictError
         
     def _finish(self, *ignored):
         try:
@@ -367,11 +367,11 @@ class DB(TM):
                     self.db.store_result()
                 if self._transactions:
                     self.db.query("COMMIT")
-                self.db.store_result()
+                    self.db.store_result()
             except:
                 LOG('ZMySQLDA', ERROR, "exception during _finish",
                     error=sys.exc_info())
-                raise
+                raise ConflictError
         finally:
             self._tlock.release()
 
@@ -386,4 +386,8 @@ class DB(TM):
             else:
                 LOG('ZMySQLDA', ERROR, "aborting when non-transactional")
         finally:
-            self._tlock.release()
+            try:
+                self._tlock.release()
+            except:
+                pass
+            
