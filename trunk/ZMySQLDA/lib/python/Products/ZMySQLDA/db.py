@@ -202,6 +202,8 @@ class DB(TM):
         kwargs = {'conv': self.conv}
         items = split(connection)
         self._use_TM = None
+        if _mysql.get_client_info()[0] >= '5':
+            kwargs['client_flag'] = CLIENT.MULTI_STATEMENTS
         if not items: return kwargs
         lockreq, items = items[0], items[1:]
         if lockreq[0] == "*":
