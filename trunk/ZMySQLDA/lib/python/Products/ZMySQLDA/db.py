@@ -88,7 +88,7 @@ __version__='$Revision$'[11:-2]
 
 import _mysql
 from _mysql_exceptions import OperationalError, NotSupportedError
-MySQLdb_version_required = (1,0,0)
+MySQLdb_version_required = (1,2,0)
 
 _v = getattr(_mysql, 'version_info', (0,0,0))
 if _v < MySQLdb_version_required:
@@ -343,6 +343,10 @@ class DB(TM):
 
     def string_literal(self, s): return self.db.string_literal(s)
 
+    def close(self):
+        self.db.close()
+        self.db = None
+        
     def _begin(self, *ignored):
         self._tlock.acquire()
         try:
