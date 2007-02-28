@@ -90,20 +90,18 @@ __version__='$Revision$'[11:-2]
 
 import os
 from db import DB
-import Shared.DC.ZRDB.Connection, sys, DABase
-from App.Dialogs import MessageDialog
+import DABase
 from Globals import HTMLFile
 from ImageFile import ImageFile
-from ExtensionClass import Base
 from DateTime import DateTime
 
 manage_addZMySQLConnectionForm=HTMLFile('connectionAdd',globals())
 
 def manage_addZMySQLConnection(self, id, title,
                                 connection_string,
-                                check=None, REQUEST=None):
+                                check=None, unicode=False, REQUEST=None):
     """Add a DB connection to a folder"""
-    self._setObject(id, Connection(id, title, connection_string, check))
+    self._setObject(id, Connection(id, title, connection_string, check, not not unicode))
     if REQUEST is not None: return self.manage_main(self,REQUEST)
 
 class Connection(DABase.Connection):
@@ -122,13 +120,29 @@ class Connection(DABase.Connection):
         except: pass
         self._v_connected=''
         DB=self.factory()
-	## No try. DO.
-	self._v_database_connection=DB(s)
+        ## No try. DO.
+        self._v_database_connection=DB(s)
+        self._v_database_connection.setUnicode(self.unicode)
         self._v_connected=DateTime()
         return self
 
+    def __init__(self, id, title, connection_string, check, unicode):
+        self.unicode = unicode
+        return DABase.Connection.__init__(self, id, title, connection_string, check)
+
+    def manage_edit(self, title, connection_string,
+                    check=None, unicode=False):
+        """Change connection
+        """
+        self.unicode = not not unicode
+        return DABase.Connection.manage_edit(self, title, connection_string,
+                    check=None)
+        
     def sql_quote__(self, v, escapes={}):
-        return self._v_database_connection.string_literal(v)
+        if self.unicode:
+            return self._v_database_connection.unicode_literal(v)
+        else:
+            return self._v_database_connection.string_literal(v)
 
 
 classes=('DA.Connection',)
@@ -156,6 +170,7 @@ misc_={'conn': ImageFile(
     os.path.join('Shared','DC','ZRDB','www','DBAdapterFolder_icon.gif'))}
 
 for icon in ('table', 'view', 'stable', 'what',
-	     'field', 'text','bin','int','float',
-	     'date','time','datetime'):
+        'field', 'text','bin','int','float',
+        'date','time','datetime'):
     misc_[icon]=ImageFile(os.path.join('icons','%s.gif') % icon, globals())
+

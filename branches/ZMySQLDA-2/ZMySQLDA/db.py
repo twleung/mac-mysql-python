@@ -96,15 +96,18 @@ if _v < MySQLdb_version_required:
 	"ZMySQLDA requires at least MySQLdb %s, %s found" % \
 	(MySQLdb_version_required, _v)
 
-from MySQLdb.converters import conversions
-from MySQLdb.constants import FIELD_TYPE, CR, CLIENT
+from MySQLdb.converters import conversions, char_array
+from MySQLdb.constants import FIELD_TYPE, CR, CLIENT, FLAG
 from Shared.DC.ZRDB.TM import TM
+from ZODB.POSException import ConflictError
 from DateTime import DateTime
-from zLOG import LOG, ERROR, INFO
 
 import string, sys
 from string import strip, split, find, upper, rfind
 from time import time
+import logging
+
+LOG = logging.getLogger('ZMySQLDA')
 
 key_types = {
     "PRI": "PRIMARY KEY",
@@ -184,8 +187,7 @@ class DB(TM):
         self.connection=connection
         self.kwargs = kwargs = self._parse_connection_string(connection)
         self.db=apply(self.Database_Connection, (), kwargs)
-        LOG("ZMySQLDA", INFO, "Opened new connection %s: %s" \
-            % (self.db, connection)) 
+        LOG.info("Opened new connection %s: %s" % (self.db, connection))
         transactional = self.db.server_capabilities & CLIENT.TRANSACTIONS
         if self._try_transactions == '-':
             transactional = 0
@@ -197,6 +199,26 @@ class DB(TM):
         if self._use_TM:
             self._tlock = allocate_lock()
         self._lock = allocate_lock()
+
+    def setUnicode(self, unicode):
+        print "Setting Unicode"
+        if unicode:
+            # Update the converters on the unicode object
+            def u(s):
+                return s.decode('UTF8')
+            self.conv[FIELD_TYPE.STRING] = u
+            self.conv[FIELD_TYPE.VAR_STRING] = u
+            self.conv[FIELD_TYPE.BLOB].insert(-1, (None, u))
+        else:
+            # Remove these elements - by default they should not be present
+            if self.conv.has_key(FIELD_TYPE.STRING):
+                del self.conv[FIELD_TYPE.STRING]
+            if self.conv.has_key(FIELD_TYPE.VAR_STRING):
+                del self.conv[FIELD_TYPE.VAR_STRING]
+            self.conv[FIELD_TYPE.BLOB] = [
+                (FLAG.BINARY, char_array),
+                (None, None),
+            ]
 
     def _parse_connection_string(self, connection):
         kwargs = {'conv': self.conv}
@@ -345,6 +367,11 @@ class DB(TM):
 
     def string_literal(self, s): return self.db.string_literal(s)
 
+    def unicode_literal(self, s):
+        if type(s) == unicode:
+            s = s.encode('UTF8')
+        return self.string_literal(s)
+
     def close(self):
         self.db.close()
         self.db = None
@@ -360,8 +387,7 @@ class DB(TM):
                 self.db.query("SELECT GET_LOCK('%s',0)" % self._mysql_lock)
                 self.db.store_result()
         except:
-            LOG('ZMySQLDA', ERROR, "exception during _begin",
-                error=sys.exc_info())
+            LOG.error("exception during _begin", exc_info=True)
             self._tlock.release()
             raise ConflictError
         
@@ -375,8 +401,7 @@ class DB(TM):
                     self.db.query("COMMIT")
                     self.db.store_result()
             except:
-                LOG('ZMySQLDA', ERROR, "exception during _finish",
-                    error=sys.exc_info())
+                LOG.error("exception during _finish", exc_info=True)
                 raise ConflictError
         finally:
             self._tlock.release()
@@ -390,7 +415,7 @@ class DB(TM):
                 self.db.query("ROLLBACK")
                 self.db.store_result()
             else:
-                LOG('ZMySQLDA', ERROR, "aborting when non-transactional")
+                LOG.error("aborting when non-transactional")
         finally:
             try:
                 self._tlock.release()
