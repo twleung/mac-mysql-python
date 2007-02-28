@@ -1,4 +1,0 @@
-* MySQL-python-1.0.0 or newer
-
-* Zope-2.7.0 or newer
-
