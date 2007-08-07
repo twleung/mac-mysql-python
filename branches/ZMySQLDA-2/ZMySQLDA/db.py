@@ -102,9 +102,7 @@ from Shared.DC.ZRDB.TM import TM
 from ZODB.POSException import ConflictError
 from DateTime import DateTime
 
-import string, sys
-from string import strip, split, find, upper, rfind
-from time import time
+import thread
 import logging
 
 LOG = logging.getLogger('ZMySQLDA')
@@ -183,7 +181,6 @@ class DB(TM):
     _p_oid=_p_changed=_registered=None
 
     def __init__(self,connection):
-        from thread import allocate_lock
         self.connection=connection
         self.kwargs = kwargs = self._parse_connection_string(connection)
         self.db=apply(self.Database_Connection, (), kwargs)
@@ -197,18 +194,19 @@ class DB(TM):
         if self._mysql_lock:
             self._use_TM = 1
         if self._use_TM:
-            self._tlock = allocate_lock()
-        self._lock = allocate_lock()
+            self._tlock = thread.allocate_lock()
+        self._lock = thread.allocate_lock()
 
     def setUnicode(self, unicode):
-        print "Setting Unicode"
         if unicode:
             # Update the converters on the unicode object
             def u(s):
                 return s.decode('UTF8')
             self.conv[FIELD_TYPE.STRING] = u
             self.conv[FIELD_TYPE.VAR_STRING] = u
-            self.conv[FIELD_TYPE.BLOB].insert(-1, (None, u))
+            # conflicts with removal of blob converter which was done in
+            # revision 375 "for compatibility with MySQLdb-1.0.0 and newer."
+            #self.conv[FIELD_TYPE.BLOB].insert(-1, (None, u))
         else:
             # Remove these elements - by default they should not be present
             if self.conv.has_key(FIELD_TYPE.STRING):
@@ -222,7 +220,7 @@ class DB(TM):
 
     def _parse_connection_string(self, connection):
         kwargs = {'conv': self.conv}
-        items = split(connection)
+        items = connection.split()
         self._use_TM = None
         if _mysql.get_client_info()[0] >= '5':
             kwargs['client_flag'] = CLIENT.MULTI_STATEMENTS
@@ -236,10 +234,10 @@ class DB(TM):
             self._mysql_lock = None
             db_host = lockreq
         if '@' in db_host:
-            db, host = split(db_host,'@',1)
+            db, host = db_host.split('@',1)
             kwargs['db'] = db
             if ':' in host:
-                host, port = split(host,':',1)
+                host, port = host.split(':',1)
                 kwargs['port'] = int(port)
             kwargs['host'] = host
         else:
@@ -276,7 +274,6 @@ class DB(TM):
         return r
 
     def columns(self, table_name):
-        from string import join
         try:
             try:
                 self._lock.acquire()
@@ -293,12 +290,12 @@ class DB(TM):
             field_default = Default and "DEFAULT %s"%Default or ''
             if Default: info['Default'] = Default
             if '(' in Type:
-                end = rfind(Type,')')
-                short_type, size = split(Type[:end],'(',1)
+                end = Type.rfind(')')
+                short_type, size = Type[:end].split('(',1)
                 if short_type not in ('set','enum'):
                     if ',' in size:
                         info['Scale'], info['Precision'] = \
-                                       map(int, split(size,',',1))
+                                       map(int, size.split(',',1))
                     else:
                         info['Scale'] = int(size)
             else:
@@ -310,7 +307,7 @@ class DB(TM):
             info['Name'] = Field
             info['Type'] = type_xlate.get(short_type,'string')
             info['Extra'] = Extra,
-            info['Description'] = join([Type, field_default, Extra or '',
+            info['Description'] = ' '.join([Type, field_default, Extra or '',
                                         key_types.get(Key, Key or ''),
                                         Null != 'YES' and 'NOT NULL' or '']),
             info['Nullable'] = (Null == 'YES') and 1 or 0
@@ -331,8 +328,8 @@ class DB(TM):
         db=self.db
         try:
             self._lock.acquire()
-            for qs in filter(None, map(strip,split(query_string, '\0'))):
-                qtype = upper(split(qs, None, 1)[0])
+            for qs in filter(None, map(str.strip,query_string.split('\0'))):
+                qtype = qs.split(None, 1)[0].upper()
                 if qtype == "SELECT" and max_rows:
                     qs = "%s LIMIT %d" % (qs,max_rows)
                     r=0
@@ -375,7 +372,7 @@ class DB(TM):
     def close(self):
         self.db.close()
         self.db = None
-        
+
     def _begin(self, *ignored):
         self._tlock.acquire()
         try:
@@ -395,7 +392,8 @@ class DB(TM):
         try:
             try:
                 if self._mysql_lock:
-                    self.db.query("SELECT RELEASE_LOCK('%s')" % self._mysql_lock)
+                    self.db.query("SELECT RELEASE_LOCK('%s')" %
+                            self._mysql_lock)
                     self.db.store_result()
                 if self._transactions:
                     self.db.query("COMMIT")
@@ -419,6 +417,6 @@ class DB(TM):
         finally:
             try:
                 self._tlock.release()
-            except:
+            except thread.error:
                 pass
             
