@@ -6,8 +6,8 @@ Z MySQL DA
   ** NOTE **
 
   Note that the Z MySQL database adapter is compatible with MySQL
-  versions 3.22 and later (including MySQL 3.23, 4.0, and 4.1).
-  
+  versions 3.22 and later (including MySQL 3.23, 4.0, 4.1 and 5.0).
+
   ** IMPORTANT **
   
   This product is distributed as a NON-BINARY release!
