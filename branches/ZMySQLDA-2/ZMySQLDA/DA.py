@@ -101,11 +101,13 @@ def manage_addZMySQLConnection(self, id, title,
                                 connection_string,
                                 check=None, unicode=False, REQUEST=None):
     """Add a DB connection to a folder"""
-    self._setObject(id, Connection(id, title, connection_string, check, not not unicode))
+    self._setObject(id, Connection(id, title, connection_string, check,
+        not not unicode))
     if REQUEST is not None: return self.manage_main(self,REQUEST)
 
 class Connection(DABase.Connection):
     " "
+    unicode = False
     database_type=database_type
     id='%s_database_connection' % database_type
     meta_type=title='Z %s Database Connection' % database_type
@@ -126,9 +128,10 @@ class Connection(DABase.Connection):
         self._v_connected=DateTime()
         return self
 
-    def __init__(self, id, title, connection_string, check, unicode):
+    def __init__(self, id, title, connection_string, check, unicode=False):
         self.unicode = unicode
-        return DABase.Connection.__init__(self, id, title, connection_string, check)
+        return DABase.Connection.__init__(self, id, title, connection_string,
+            check)
 
     def manage_edit(self, title, connection_string,
                     check=None, unicode=False):
