@@ -87,7 +87,6 @@ __doc__='''Generic Database Adapter Package Registration
 $Id$'''
 __version__='$Revision$'[11:-2]
 
-import sys, string
 import DA
 
 methods=DA.folder_methods
