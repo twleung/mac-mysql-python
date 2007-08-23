@@ -197,8 +197,8 @@ class DB(TM):
             self._tlock = thread.allocate_lock()
         self._lock = thread.allocate_lock()
 
-    def setUnicode(self, unicode):
-        if unicode:
+    def setUnicode(self, use_unicode):
+        if use_unicode:
             # Update the converters on the unicode object
             def u(s):
                 return s.decode('UTF8')

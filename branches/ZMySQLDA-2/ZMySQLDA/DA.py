@@ -99,15 +99,15 @@ manage_addZMySQLConnectionForm=HTMLFile('connectionAdd',globals())
 
 def manage_addZMySQLConnection(self, id, title,
                                 connection_string,
-                                check=None, unicode=False, REQUEST=None):
+                                check=None, use_unicode=False, REQUEST=None):
     """Add a DB connection to a folder"""
     self._setObject(id, Connection(id, title, connection_string, check,
-        not not unicode))
+        not not use_unicode))
     if REQUEST is not None: return self.manage_main(self,REQUEST)
 
 class Connection(DABase.Connection):
     " "
-    unicode = False
+    use_unicode = False
     database_type=database_type
     id='%s_database_connection' % database_type
     meta_type=title='Z %s Database Connection' % database_type
@@ -124,25 +124,25 @@ class Connection(DABase.Connection):
         DB=self.factory()
         ## No try. DO.
         self._v_database_connection=DB(s)
-        self._v_database_connection.setUnicode(self.unicode)
+        self._v_database_connection.setUnicode(self.use_unicode)
         self._v_connected=DateTime()
         return self
 
-    def __init__(self, id, title, connection_string, check, unicode=False):
-        self.unicode = unicode
+    def __init__(self, id, title, connection_string, check, use_unicode=False):
+        self.use_unicode = use_unicode
         return DABase.Connection.__init__(self, id, title, connection_string,
             check)
 
     def manage_edit(self, title, connection_string,
-                    check=None, unicode=False):
+                    check=None, use_unicode=False):
         """Change connection
         """
-        self.unicode = not not unicode
+        self.use_unicode = not not use_unicode
         return DABase.Connection.manage_edit(self, title, connection_string,
                     check=None)
         
     def sql_quote__(self, v, escapes={}):
-        if self.unicode:
+        if self.use_unicode:
             return self._v_database_connection.unicode_literal(v)
         else:
             return self._v_database_connection.string_literal(v)

@@ -37,7 +37,7 @@
 	<tr>
 	  <th align="LEFT" valign="TOP">Unicode Support</th>
 	  <td align="LEFT" valign="TOP">
-            <input name="unicode" type="CHECKBOX" value="YES" CHECKED>
+            <input name="use_unicode" type="CHECKBOX" value="YES" CHECKED>
           </td>
 	</tr>
 	<tr>
