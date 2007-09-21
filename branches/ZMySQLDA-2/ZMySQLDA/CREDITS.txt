@@ -1,0 +1,7 @@
+People who have contributed code or documentation.
+
+Andy Dustman
+John Eikenberry
+Vincent Pelletier
+Graeme Mathieson
+

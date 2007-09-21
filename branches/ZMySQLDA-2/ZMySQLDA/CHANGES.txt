@@ -1,5 +1,41 @@
 Z MySQL DA Releases
 
+  3.0alpha1
+
+    Fixed major deadlock causing bug that can occur with versions of Zope 
+    greater than 2.8. It was caused by the use of the volatile attribute 
+    (_v_) to keep the reference to the existing connection. Volatile
+    attributes can go away mid-transaction which would cause a deadlock when
+    used with a transactional engine (eg. innodb). The fix involves a fixed
+    pool of adapters and db connections. This also allowed for the elimination
+    of many of the locks. Adapted from patches made by Vincent Pelletier.
+
+    Experimental Unicode support has been added. It is hardcoded to UTF-8 and
+    has had limited testing at this point. Adapted from patches made by Graeme
+    Mathieson.
+
+    New optional feature of automatically creating the database provided in the
+    connection string. The mysql 'user' used for the connection must have
+    CREATE permission. It defaults to on to encourage more testing.
+
+    Automatically reopens connections closed by timeouts.
+
+    Database connection not created until first use instead of when the 
+    object is first loaded. Ie. connection created at connect() call instead
+    of __setstate__() call.
+
+    Note that there are some changes in the internal API. So if you have
+    subclassed you should double check compatibility.
+
+    Bugs/Patches (eliding MySQLdb bugs)
+
+    #670137:  missing sortKey() fixed in Zope
+    #814378:  infinite reconnect recursion fixed
+    #1560557: missing import
+    #1242842: missing MULTI_STATEMENTS
+    #1226690: missing close() method
+
+
   2.0.9
 
     Allow the connection string to work without a specified database.
