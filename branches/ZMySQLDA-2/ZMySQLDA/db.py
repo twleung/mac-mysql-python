@@ -87,7 +87,8 @@
 __version__='$Revision$'[11:-2]
 
 import _mysql
-from _mysql_exceptions import OperationalError, NotSupportedError
+import MySQLdb
+from _mysql_exceptions import OperationalError, NotSupportedError, ProgrammingError
 MySQLdb_version_required = (1,2,0)
 
 _v = getattr(_mysql, 'version_info', (0,0,0))
@@ -97,15 +98,23 @@ if _v < MySQLdb_version_required:
 	(MySQLdb_version_required, _v)
 
 from MySQLdb.converters import conversions, char_array
-from MySQLdb.constants import FIELD_TYPE, CR, CLIENT, FLAG
+from MySQLdb.constants import FIELD_TYPE, CR, ER, CLIENT, FLAG
 from Shared.DC.ZRDB.TM import TM
 from ZODB.POSException import ConflictError
 from DateTime import DateTime
 
-import thread
 import logging
-
 LOG = logging.getLogger('ZMySQLDA')
+from thread import get_ident, allocate_lock
+
+hosed_connection = (
+    CR.SERVER_GONE_ERROR,
+    CR.SERVER_LOST
+    )
+
+query_syntax_error = (
+    ER.BAD_FIELD_ERROR,
+    )
 
 key_types = {
     "PRI": "PRIMARY KEY",
@@ -150,15 +159,149 @@ def int_or_long(s):
     try: return int(s)
     except: return long(s)
 
-"""Locking strategy:
 
-The minimum that must be done is a mutex around a query, store_result
-sequence. When using transactions, the mutex must go around the
-entire transaction."""
+class DBPool(object):
+    """
+      This class is an interface to DB.
+      Its caracteristic is that an instance of this class interfaces multiple
+      instanes of DB class, each one being bound to a specific thread.
+    """
+
+    connected_timestamp = ''
+
+    def __init__(self, db_cls, create_db=False):
+        """ Set transaction managed DB class for use in pool.
+        """
+        self.DB = db_cls
+        # pool of one db object/thread
+        self._db_pool = {}
+        self._db_lock = allocate_lock()
+        # auto-create db if not present on server
+        self._create_db = create_db
+
+    def __call__(self, connection):
+        """
+          Parse the connection string.
+          Initiate a trial connection with the database to check
+          transactionality once instead of once per DB instance.
+        """
+        self.connection = connection
+        DB = self.DB
+        #
+        db_flags = DB._parse_connection_string(connection)
+        self._db_flags = db_flags
+
+        # connect to server to determin tranasactional capabilities
+        # can't use DB instance as it requires this information to work
+        try:
+            connection = MySQLdb.connect(**db_flags['kw_args'])
+        except OperationalError:
+            if 0 and self._create_db:
+                kw_args = db_flags.get('kw_args',{}).copy()
+                db = kw_args.pop('db',None)
+                if not db: raise
+                connection = MySQLdb.connect(**kw_args)
+                connection.query("create database %s" % db)
+                connection.store_result()
+            else:
+                raise
+        transactional = connection.server_capabilities & CLIENT.TRANSACTIONS
+        connection.close()
+
+        # Some tweaks to db_flags based on server setup
+        if db_flags['try_transactions'] == '-':
+            transactional = False
+        elif not transactional and db_flags['try_transactions'] == '+':
+            raise NotSupportedError, "transactions not supported by this server"
+        db_flags['transactions'] = transactional
+        del db_flags['try_transactions']
+        if transactional or db_flags['mysql_lock']:
+            db_flags['use_TM'] = True
+
+        # will not be 100% accurate in regard to per thread connections
+        # but as close as we're going to get it.
+        self.connected_timestamp = DateTime()
+
+        # return self as the database connection object 
+        # (assigned to _v_database_connection)
+        return self
+
+    def setUnicode(self, use_unicode):
+        """ Store unicode settings to be passed along to DB instances
+            in pool.
+        """
+        self._use_unicode = use_unicode
+
+    def closeConnection(self):
+        """ Close this threads connection. Used when DA is being reused
+            but the connection string has changed. Need to close the DB
+            instances and recreate to the new database. Only have to worry
+            about this thread as when each thread hits the new connection
+            string in the DA this method will be called.
+        """
+        ident = get_ident()
+        try:
+            self._pool_del(ident)
+        except KeyError:
+            pass
+
+    def close(self):
+        """ Used when manually closing the database. Resetting the pool
+            dereferences the DB instances where they are then collected
+            and closed.
+        """
+        self._db_pool = {}
+
+    def _pool_set(self, key, value):
+        self._db_lock.acquire()
+        try:
+            self._db_pool[key] = value
+        finally:
+            self._db_lock.release()
+
+    def _pool_get(self, key):
+        self._db_lock.acquire()
+        try:
+            return self._db_pool.get(key)
+        finally:
+            self._db_lock.release()
+
+    def _pool_del(self, key):
+        self._db_lock.acquire()
+        try:
+            del self._db_pool[key]
+        finally:
+            self._db_lock.release()
+
+    def _access_db(self, method_id, args, kw):
+        """
+          Generic method to call pooled objects' methods.
+          When the current thread had never issued any call, create a DB
+          instance.
+        """
+        ident = get_ident()
+        db = self._pool_get(ident)
+        if db is None:
+            db = self.DB(**self._db_flags)
+            db.setUnicode(self._use_unicode)
+            self._pool_set(ident, db)
+        return getattr(db, method_id)(*args, **kw)
+
+    def tables(self, *args, **kw):
+        return self._access_db(method_id='tables', args=args, kw=kw)
+
+    def columns(self, *args, **kw):
+        return self._access_db(method_id='columns', args=args, kw=kw)
+
+    def query(self, *args, **kw):
+        return self._access_db(method_id='query', args=args, kw=kw)
+
+    def string_literal(self, *args, **kw):
+        return self._access_db(method_id='string_literal', args=args, kw=kw)
+
 
 class DB(TM):
 
-    Database_Connection=_mysql.connect
     Database_Error=_mysql.Error
 
     defs={
@@ -180,24 +323,83 @@ class DB(TM):
 
     _p_oid=_p_changed=_registered=None
 
-    def __init__(self,connection):
-        self.connection=connection
-        self.kwargs = kwargs = self._parse_connection_string(connection)
-        self.db=apply(self.Database_Connection, (), kwargs)
-        LOG.info("Opened new connection %s: %s" % (self.db, connection))
-        transactional = self.db.server_capabilities & CLIENT.TRANSACTIONS
-        if self._try_transactions == '-':
-            transactional = 0
-        elif not transactional and self._try_transactions == '+':
-            raise NotSupportedError, "transactions not supported by this server"
-        self._use_TM = self._transactions = transactional
-        if self._mysql_lock:
-            self._use_TM = 1
-        if self._use_TM:
-            self._tlock = thread.allocate_lock()
-        self._lock = thread.allocate_lock()
+    def __init__(self, connection=None, kw_args=None, use_TM=None,
+            mysql_lock=None, transactions=None):
+        self.connection = connection # backwards compat
+        self._kw_args = kw_args
+        self._mysql_lock = mysql_lock
+        self._use_TM = use_TM
+        self._transactions = transactions
+        self._forceReconnection()
+
+    def close(self):
+        """ Close connection and dereference.
+        """
+        if getattr(self,'db',None):
+            self.db.close()
+            self.db = None
+    __del__ = close
+
+    def _forceReconnection(self):
+        try: # try to clean up first
+            self.db.close()
+        except: pass
+        db = MySQLdb.connect(**self._kw_args)
+        self.db = db
+
+    @classmethod
+    def _parse_connection_string(cls, connection):
+        """ Done as a class method to both allow access to class attribute
+            conv (conversion) settings while allowing for wrapping pool class
+            use of this method. The former is important to allow for subclasses
+            to override the conv settings while the latter is important so 
+            the connection string doesn't have to be parsed for each instance
+            in the pool.
+        """
+        kw_args = {'conv':cls.conv}
+        flags = {'kw_args':kw_args, 'connection':connection}
+        items = connection.split()
+        flags['use_TM'] = None
+        if _mysql.get_client_info()[0] >= '5':
+            kw_args['client_flag'] = CLIENT.MULTI_STATEMENTS
+        if items:
+            lockreq, items = items[0], items[1:]
+            if lockreq[0] == "*":
+                flags['mysql_lock'] = lockreq[1:]
+                db_host, items = items[0], items[1:]
+                flags['use_TM'] = True
+            else:
+                flags['mysql_lock'] = None
+                db_host = lockreq
+            if '@' in db_host:
+                db, host = db_host.split('@',1)
+                kw_args['db'] = db
+                if ':' in host:
+                    host, port = host.split(':',1)
+                    kw_args['port'] = int(port)
+                kw_args['host'] = host
+            else:
+                kw_args['db'] = db_host
+            if kw_args['db'] and kw_args['db'][0] in ('+', '-'):
+                flags['try_transactions'] = kw_args['db'][0]
+                kw_args['db'] = kw_args['db'][1:]
+            else:
+                flags['try_transactions'] = None
+            if not kw_args['db']:
+                del kw_args['db']
+            if items:
+                kw_args['user'], items = items[0], items[1:]
+            if items:
+                kw_args['passwd'], items = items[0], items[1:]
+            if items:
+                kw_args['unix_socket'], items = items[0], items[1:]
+
+        return flags
 
     def setUnicode(self, use_unicode):
+        """ Turn on unicode support. Changes several of the conv (converters)
+            to use python's unicode type rather than strings.
+        """
         if use_unicode:
             # Update the converters on the unicode object
             def u(s):
@@ -218,70 +420,25 @@ class DB(TM):
                 (None, None),
             ]
 
-    def _parse_connection_string(self, connection):
-        kwargs = {'conv': self.conv}
-        items = connection.split()
-        self._use_TM = None
-        if _mysql.get_client_info()[0] >= '5':
-            kwargs['client_flag'] = CLIENT.MULTI_STATEMENTS
-        if not items: return kwargs
-        lockreq, items = items[0], items[1:]
-        if lockreq[0] == "*":
-            self._mysql_lock = lockreq[1:]
-            db_host, items = items[0], items[1:]
-            self._use_TM = 1
-        else:
-            self._mysql_lock = None
-            db_host = lockreq
-        if '@' in db_host:
-            db, host = db_host.split('@',1)
-            kwargs['db'] = db
-            if ':' in host:
-                host, port = host.split(':',1)
-                kwargs['port'] = int(port)
-            kwargs['host'] = host
-        else:
-            kwargs['db'] = db_host
-        if kwargs['db'] and kwargs['db'][0] in ('+', '-'):
-            self._try_transactions = kwargs['db'][0]
-            kwargs['db'] = kwargs['db'][1:]
-        else:
-            self._try_transactions = None
-        if not kwargs['db']:
-            del kwargs['db']
-        if not items: return kwargs
-        kwargs['user'], items = items[0], items[1:]
-        if not items: return kwargs
-        kwargs['passwd'], items = items[0], items[1:]
-        if not items: return kwargs
-        kwargs['unix_socket'], items = items[0], items[1:]
-        return kwargs
-        
     def tables(self, rdb=0,
                _care=('TABLE', 'VIEW')):
+        """ Returns list of tables.
+        """
         r=[]
         a=r.append
-        self._lock.acquire()
-        try:
-            self.db.query("SHOW TABLES")
-            result = self.db.store_result()
-        finally:
-            self._lock.release()
+        result = self._query("SHOW TABLES")
         row = result.fetch_row(1)
-	while row:
+        while row:
             a({'TABLE_NAME': row[0][0], 'TABLE_TYPE': 'TABLE'})
             row = result.fetch_row(1)
         return r
 
     def columns(self, table_name):
+        """ Returns list of columns for [table_name].
+        """
         try:
-            try:
-                self._lock.acquire()
-                # Field, Type, Null, Key, Default, Extra
-                self.db.query('SHOW COLUMNS FROM %s' % table_name)
-                c=self.db.store_result()
-            finally:
-                self._lock.release()
+            # Field, Type, Null, Key, Default, Extra
+            c = self._query('SHOW COLUMNS FROM %s' % table_name)
         except:
             return ()
         r=[]
@@ -321,32 +478,58 @@ class DB(TM):
             r.append(info)
         return r
 
-    def query(self,query_string, max_rows=1000):
+    def _query(self, query, force_reconnect=False):
+        """
+          Send a query to MySQL server.
+          It reconnects automaticaly if needed and the following conditions are
+          met:
+           - It has not just tried to reconnect (ie, this function will not
+             attemp to connect twice per call).
+           - This conection is not transactionnal and has set no MySQL locks,
+             because they are bound to the connection. This check can be
+             overridden by passing force_reconnect with True value.
+        """
+        try:
+            self.db.query(query)
+        except OperationalError, m:
+            if m[0] in query_syntax_error:
+                raise OperationalError(m[0], '%s: %s' % (m[1], query))
+            if ((not force_reconnect) and \
+                    (self._mysql_lock or self._transactions)) or \
+                    m[0] not in hosed_connection:
+                LOG.error('query failed: %s' % (query,))
+                raise
+            # Hm. maybe the db is hosed.  Let's restart it.
+            self._forceReconnection()
+            self.db.query(query)
+        except ProgrammingError:
+            LOG.error('query failed: %s' % (query,))
+            raise
+        return self.db.store_result()
+
+    def query(self, query_string, max_rows=1000):
+        """ API method for making the query to mysql.
+        """
         self._use_TM and self._register()
         desc=None
         result=()
-        db=self.db
-        try:
-            self._lock.acquire()
-            for qs in filter(None, map(str.strip,query_string.split('\0'))):
-                qtype = qs.split(None, 1)[0].upper()
-                if qtype == "SELECT" and max_rows:
-                    qs = "%s LIMIT %d" % (qs,max_rows)
-                    r=0
-                db.query(qs)
-                c=db.store_result()
-                if desc is not None:
-                    if c and (c.describe() != desc):
-                        raise 'Query Error', (
-                            'Multiple select schema are not allowed'
-                            )
-                if c:
-                    desc=c.describe()
-                    result=c.fetch_row(max_rows)
-                else:
-                    desc=None
-        finally:
-            self._lock.release()
+        for qs in filter(None, map(str.strip,query_string.split('\0'))):
+            qtype = qs.split(None, 1)[0].upper()
+            if qtype == "SELECT" and max_rows:
+                qs = "%s LIMIT %d" % (qs,max_rows)
+                r=0
+            c = self._query(qs)
+            if desc is not None:
+                if c and (c.describe() != desc):
+                    # XXX change to use ProgrammingError class
+                    raise 'Query Error', (
+                        'Multiple select schema are not allowed'
+                        )
+            if c:
+                desc=c.describe()
+                result=c.fetch_row(max_rows)
+            else:
+                desc=None
 
         if desc is None: return (),()
 
@@ -362,61 +545,60 @@ class DB(TM):
             func(item)
         return items, result
 
-    def string_literal(self, s): return self.db.string_literal(s)
+    def string_literal(self, s):
+        """ Called from zope to quote/escape strings for inclusion
+            in a query.
+        """
+        return self.db.string_literal(s)
 
     def unicode_literal(self, s):
+        """ Similar to string_literal but encodes it first.
+        """
         if type(s) == unicode:
             s = s.encode('UTF8')
         return self.string_literal(s)
 
-    def close(self):
-        self.db.close()
-        self.db = None
-
+    # Zope 2-phase transaction handling methods
     def _begin(self, *ignored):
-        self._tlock.acquire()
+        """ Called from _register() upon first query.
+        """
         try:
+            self._transaction_begun = True
             self.db.ping()
             if self._transactions:
-                self.db.query("BEGIN")
-                self.db.store_result()
+                self._query("BEGIN")
             if self._mysql_lock:
-                self.db.query("SELECT GET_LOCK('%s',0)" % self._mysql_lock)
-                self.db.store_result()
+                self._query("SELECT GET_LOCK('%s',0)" % self._mysql_lock)
         except:
             LOG.error("exception during _begin", exc_info=True)
             self._tlock.release()
             raise ConflictError
-        
-    def _finish(self, *ignored):
-        try:
-            try:
-                if self._mysql_lock:
-                    self.db.query("SELECT RELEASE_LOCK('%s')" %
-                            self._mysql_lock)
-                    self.db.store_result()
-                if self._transactions:
-                    self.db.query("COMMIT")
-                    self.db.store_result()
-            except:
-                LOG.error("exception during _finish", exc_info=True)
-                raise ConflictError
-        finally:
-            self._tlock.release()
 
-    def _abort(self, *ignored):
+    def _finish(self, *ignored):
+        """ Called as final event in transaction system.
+        """
+        if not self._transaction_begun:
+            return
+        self._transaction_begun = False
         try:
             if self._mysql_lock:
-                self.db.query("SELECT RELEASE_LOCK('%s')" % self._mysql_lock)
-                self.db.store_result()
+                self._query("SELECT RELEASE_LOCK('%s')" % self._mysql_lock)
             if self._transactions:
-                self.db.query("ROLLBACK")
-                self.db.store_result()
-            else:
-                LOG.error("aborting when non-transactional")
-        finally:
-            try:
-                self._tlock.release()
-            except thread.error:
-                pass
-            
+                self._query("COMMIT")
+        except:
+            LOG.error("exception during _finish", exc_info=True)
+            raise ConflictError
+
+    def _abort(self, *ignored):
+        """ Called in case of transactional error.
+        """
+        if not self._transaction_begun:
+            return
+        self._transaction_begun = False
+        if self._mysql_lock:
+            self._query("SELECT RELEASE_LOCK('%s')" % self._mysql_lock)
+        if self._transactions:
+            self._query("ROLLBACK")
+        else:
+            LOG.error("aborting when non-transactional")
+

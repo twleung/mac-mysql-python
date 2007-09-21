@@ -89,63 +89,124 @@ $Id$''' % database_type
 __version__='$Revision$'[11:-2]
 
 import os
-from db import DB
-import DABase
-from Globals import HTMLFile
-from ImageFile import ImageFile
-from DateTime import DateTime
+from db import DBPool, DB
+from thread import allocate_lock
 
-manage_addZMySQLConnectionForm=HTMLFile('connectionAdd',globals())
+import DABase
+from ImageFile import ImageFile
+import Globals
+
+manage_addZMySQLConnectionForm=Globals.HTMLFile('connectionAdd',globals())
 
 def manage_addZMySQLConnection(self, id, title,
                                 connection_string,
-                                check=None, use_unicode=False, REQUEST=None):
+                                check=None,
+                                use_unicode=False,
+                                auto_create_db=False,
+                                REQUEST=None):
     """Add a DB connection to a folder"""
-    self._setObject(id, Connection(id, title, connection_string, check,
-        not not use_unicode))
+    use_unicode = bool(use_unicode)
+    auto_create_db = bool(auto_create_db)
+    self._setObject(id,
+            Connection(id, title, connection_string, check,
+                use_unicode=use_unicode,
+                auto_create_db=auto_create_db))
     if REQUEST is not None: return self.manage_main(self,REQUEST)
 
+# Connection Pool for connections to MySQL.
+# Maps one mysql client connection to one DA object instance.
+database_connection_pool_lock = allocate_lock()
+database_connection_pool = {}
+
+# Combining connection pool with the DB pool gets you
+# one DA/connection per connection with 1 DBPool with 1 DB/thread
+# pool_id -> DA -> DBPool -> thread id -> DB
+# dc_pool[pool_id] == DBPool_instance
+# DBPool_instance[thread id] == DB instance
+
 class Connection(DABase.Connection):
-    " "
-    use_unicode = False
+    """ ZMySQL Database Adapter Connection.
+    """
     database_type=database_type
     id='%s_database_connection' % database_type
     meta_type=title='Z %s Database Connection' % database_type
     icon='misc_/Z%sDA/conn' % database_type
 
-    manage_properties=HTMLFile('connectionEdit', globals())
+    auto_create_db = True
+    use_unicode = False
+    _v_connected = ''
 
-    def factory(self): return DB
+    manage_properties=Globals.HTMLFile('connectionEdit', globals())
 
-    def connect(self,s):
-        try: self._v_database_connection.close()
-        except: pass
-        self._v_connected=''
-        DB=self.factory()
-        ## No try. DO.
-        self._v_database_connection=DB(s)
-        self._v_database_connection.setUnicode(self.use_unicode)
-        self._v_connected=DateTime()
-        return self
-
-    def __init__(self, id, title, connection_string, check, use_unicode=False):
-        self.use_unicode = use_unicode
-        return DABase.Connection.__init__(self, id, title, connection_string,
-            check)
-
-    def manage_edit(self, title, connection_string,
-                    check=None, use_unicode=False):
-        """Change connection
+    def factory(self):
+        """ Base API. Returns factory method for DB connections.
         """
-        self.use_unicode = not not use_unicode
-        return DABase.Connection.manage_edit(self, title, connection_string,
-                    check=None)
+        return DBPool(DB, create_db=self.auto_create_db)
+    
+    def _pool_key(self):
+        """ Return key used for DA pool.
+        """
+        return self.getPhysicalPath()
+
+    def connect(self, s):
+        """ Base API. Opens connection to mysql. Raises if problems.
+        """
+        database_connection_pool_lock.acquire()
+        try:
+            pool_key = self._pool_key()
+            connection = database_connection_pool.get(pool_key)
+            if connection is not None and connection.connection == s:
+                self._v_database_connection = connection
+                self._v_connected = connection.connected_timestamp
+            else:
+                if connection is not None:
+                    connection.closeConnection()
+                DB = self.factory()
+                database_connection_pool[pool_key] = connection = DB(s)
+                self._v_database_connection = connection
+                connection.setUnicode(self.use_unicode)
+                # XXX If date is used as such, it can be wrong because an 
+                # existing connection may be reused. But this is suposedly
+                # only used as a marker to know if connection was successfull.
+                self._v_connected = connection.connected_timestamp
+        finally:
+            database_connection_pool_lock.release()
+        return self
         
     def sql_quote__(self, v, escapes={}):
+        """ Base API. Used to message strings for use in queries.
+        """
         if self.use_unicode:
             return self._v_database_connection.unicode_literal(v)
         else:
             return self._v_database_connection.string_literal(v)
+
+    def __init__(self, id, title, connection_string, check,
+                    use_unicode=False,
+                    auto_create_db=False):
+        """ Instance setup. Optionally opens the connection (check arg).
+        """
+        self.use_unicode = bool(use_unicode)
+        self.auto_create_db = bool(auto_create_db)
+        return DABase.Connection.__init__(self, id, title, connection_string,
+            check)
+
+    def __setstate__(self,state):
+        """ Skip super's __setstate__ as it connects which we don't want
+            due to pool_key depending on acquisition.
+        """
+        Globals.Persistent.__setstate__(self, state)
+
+    def manage_edit(self, title, connection_string,
+                    check=None,
+                    use_unicode=False,
+                    auto_create_db=False):
+        """ Zope management API.
+        """
+        self.use_unicode = bool(use_unicode)
+        self.auto_create_db = bool(auto_create_db)
+        return DABase.Connection.manage_edit(self, title, connection_string,
+                    check=None)
 
 
 classes=('DA.Connection',)
