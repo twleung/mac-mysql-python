@@ -6,44 +6,54 @@
     
     <form action="manage_addZMySQLConnection" method="POST">
       <table cellspacing="2">
-	<tr>
-	  <th align="LEFT" valign="TOP">Id</th>
-	  <td align="LEFT" valign="TOP">
+        <tr>
+          <th align="LEFT" valign="TOP">Id</th>
+          <td align="LEFT" valign="TOP">
             <input type="TEXT" name="id" size="40"
                 value="MySQL_database_connection">
           </td>
-	</tr>
-	<tr>
-	  <th align="LEFT" valign="TOP"><em>Title</em></th>
-	  <td align="LEFT" valign="TOP">
+        </tr>
+        <tr>
+          <th align="LEFT" valign="TOP"><em>Title</em></th>
+          <td align="LEFT" valign="TOP">
             <input type="TEXT" name="title" size="40"
                 value="Z MySQL Database Connection">
           </td>
-	</tr>
-	<tr>
-	  <th align="LEFT" valign="TOP">
+        </tr>
+        <tr>
+          <th align="LEFT" valign="TOP">
              Enter a Database Connection String
-	     <a href="#1"><sup>1</sup></a></th>
-	  <td align="LEFT" valign="TOP">
+             <a href="#1"><sup>1</sup></a></th>
+          <td align="LEFT" valign="TOP">
             <input type="TEXT" name="connection_string" size="40">
           </td>
-	</tr>
-	<tr>
-	  <th align="LEFT" valign="TOP">Connect immediately</th>
-	  <td align="LEFT" valign="TOP">
+        </tr>
+        <tr>
+          <th align="LEFT" valign="TOP">Connect immediately</th>
+          <td align="LEFT" valign="TOP">
             <input name="check" type="CHECKBOX" value="YES" CHECKED>
           </td>
-	</tr>
-	<tr>
-	  <th align="LEFT" valign="TOP">Unicode Support</th>
-	  <td align="LEFT" valign="TOP">
-            <input name="use_unicode" type="CHECKBOX" value="YES" CHECKED>
+        </tr>
+        <tr>
+          <th align="LEFT" valign="TOP">Unicode support</th>
+          <td align="LEFT" valign="TOP">
+            <input name="use_unicode" type="CHECKBOX" value="YES">
+            <small> UTF-8 hardcoded. MySQL table support required.</small>
           </td>
-	</tr>
-	<tr>
-	  <td></td>
-	  <td><br><input type="SUBMIT" value="Add"></td>
-	</tr>
+        </tr>
+        <tr>
+          <th align="LEFT" valign="TOP">Automatically create database</th>
+          <td align="LEFT" valign="TOP">
+            <input name="auto_create_db" type="CHECKBOX" value="YES" checked>
+            <small>Created when first accessed based on database in connection 
+              string.
+            </small>
+          </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td><br><input type="SUBMIT" value="Add"></td>
+        </tr>
       </table>
     </form>
 

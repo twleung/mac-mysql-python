@@ -10,42 +10,50 @@
       <table cellspacing="2">
 
         <tr>
-	  <th align="LEFT" valign="TOP">Id</th>
-	  <td align="LEFT" valign="TOP"><dtml-var id></td>
-	</tr>
-
-	<tr>
-	  <th align="LEFT" valign="TOP"><em>Title</em></th>
-	  <td align="LEFT" valign="TOP">
-	    <input type="TEXT" name="title" size="40"
-                   value="<dtml-var title html_quote>">
-	  </td>
-	</tr>
-
-	<tr>
-	  <th align="LEFT" valign="TOP">Database Connection String</th>
-	  <td align="LEFT" valign="TOP">
-	    <input type="TEXT" name="connection_string" size="40"
-                   value="<dtml-var connection_string html_quote>">
-	  </td>
-	</tr>
-	<tr>
-	  <th align="LEFT" valign="TOP">Connect immediately</th>
-	  <td align="LEFT" valign="TOP">
-            <input name="check" type="CHECKBOX" value="YES" CHECKED>
-          </td>
-	</tr>
-	<tr>
-	  <th align="LEFT" valign="TOP">Unicode Support</th>
-	  <td align="LEFT" valign="TOP">
-            <input name="use_unicode" type="CHECKBOX" <dtml-if use_unicode>CHECKED</dtml-if>>
-          </td>
-	</tr>
+          <th align="LEFT" valign="TOP">Id</th>
+          <td align="LEFT" valign="TOP"><dtml-var id></td>
+        </tr>
 
         <tr>
-	  <td></td>
-	  <td><br><input type="SUBMIT" value="Change"></td>
-	</tr>
+          <th align="LEFT" valign="TOP"><em>Title</em></th>
+          <td align="LEFT" valign="TOP">
+            <input type="TEXT" name="title" size="40"
+                   value="<dtml-var title html_quote>">
+          </td>
+        </tr>
+
+        <tr>
+          <th align="LEFT" valign="TOP">Database Connection String</th>
+          <td align="LEFT" valign="TOP">
+            <input type="TEXT" name="connection_string" size="40"
+                   value="<dtml-var connection_string html_quote>">
+          </td>
+        </tr>
+        <tr>
+          <th align="LEFT" valign="TOP">Connect immediately</th>
+          <td align="LEFT" valign="TOP">
+            <input name="check" type="CHECKBOX" value="YES" CHECKED>
+          </td>
+        </tr>
+        <tr>
+          <th align="LEFT" valign="TOP">Unicode Support</th>
+          <td align="LEFT" valign="TOP">
+            <dtml-let checked="use_unicode and ' checked' or ' '">
+            <input name="use_unicode" type="CHECKBOX" value="YES" &dtml-checked;>
+            </dtml-let>
+          </td>
+        </tr>
+        <tr>
+          <th align="LEFT" valign="TOP">Automatically create database</th>
+          <td align="LEFT" valign="TOP">
+            <dtml-let checked="auto_create_db and ' checked' or ' '">
+            <input name="auto_create_db" type="CHECKBOX" value="YES" &dtml-checked;>
+            </dtml-let>
+          </td>
+        </tr>
+          <td></td>
+          <td><br><input type="SUBMIT" value="Change"></td>
+        </tr>
 
       </table>
     </form>
