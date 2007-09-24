@@ -2,13 +2,10 @@ Z MySQL DA Releases
 
   3.0alpha1
 
-    Fixed major deadlock causing bug that can occur with versions of Zope 
-    greater than 2.8. It was caused by the use of the volatile attribute 
-    (_v_) to keep the reference to the existing connection. Volatile
-    attributes can go away mid-transaction which would cause a deadlock when
-    used with a transactional engine (eg. innodb). The fix involves a fixed
-    pool of adapters and db connections. This also allowed for the elimination
-    of many of the locks. Adapted from patches made by Vincent Pelletier.
+    Note that there are some changes in the internal API. So if you have
+    subclassed you should double check compatibility.
+
+    Features:
 
     Experimental Unicode support has been added. It is hardcoded to UTF-8 and
     has had limited testing at this point. Adapted from patches made by Graeme
@@ -18,16 +15,23 @@ Z MySQL DA Releases
     connection string. The mysql 'user' used for the connection must have
     CREATE permission. It defaults to on to encourage more testing.
 
-    Automatically reopens connections closed by timeouts.
-
     Database connection not created until first use instead of when the 
     object is first loaded. Ie. connection created at connect() call instead
-    of __setstate__() call.
+    of __setstate__() call. This helps conserve system resources and makes
+    debugging connection issues a bit easier. It is also needed for the new
+    db pool implementation (see below).
 
-    Note that there are some changes in the internal API. So if you have
-    subclassed you should double check compatibility.
+    Bugs:
+    
+    Automatically reopens connections closed by client timeouts.
 
-    Bugs/Patches (eliding MySQLdb bugs)
+    Fixed major deadlock causing bug that can occur with versions of Zope 
+    greater than 2.8. It was caused by the use of the volatile attribute 
+    (_v_) to keep the reference to the existing connection. Volatile
+    attributes can go away mid-transaction which would cause a deadlock when
+    used with a transactional engine (eg. innodb). The fix involves a fixed
+    pool of adapters and db connections. This also allowed for the elimination
+    of many of the locks. Adapted from patches made by Vincent Pelletier.
 
     #670137:  missing sortKey() fixed in Zope
     #814378:  infinite reconnect recursion fixed
