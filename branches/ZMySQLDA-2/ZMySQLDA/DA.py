@@ -141,7 +141,7 @@ class Connection(DABase.Connection):
     def factory(self):
         """ Base API. Returns factory method for DB connections.
         """
-        return DBPool(DB, create_db=self.auto_create_db)
+        return DB
     
     def _pool_key(self):
         """ Return key used for DA pool.
@@ -162,6 +162,7 @@ class Connection(DABase.Connection):
                 if connection is not None:
                     connection.closeConnection()
                 DB = self.factory()
+                DB = DBPool(DB, create_db=self.auto_create_db)
                 database_connection_pool[pool_key] = connection = DB(s)
                 self._v_database_connection = connection
                 connection.setUnicode(self.use_unicode)
