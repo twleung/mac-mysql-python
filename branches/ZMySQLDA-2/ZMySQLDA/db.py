@@ -196,7 +196,7 @@ class DBPool(object):
         try:
             connection = MySQLdb.connect(**db_flags['kw_args'])
         except OperationalError:
-            if 0 and self._create_db:
+            if self._create_db:
                 kw_args = db_flags.get('kw_args',{}).copy()
                 db = kw_args.pop('db',None)
                 if not db: raise
