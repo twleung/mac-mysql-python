@@ -1,4 +1,4 @@
-ZMySQLDA 3.0alpha1
+ZMySQLDA 3.0
 
 Initial release of an extensively reworked Zope adapter. This is an alpha
 release due to the limited testing it has so far undergone and that there are a

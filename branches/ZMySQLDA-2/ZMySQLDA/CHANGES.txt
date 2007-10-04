@@ -1,5 +1,16 @@
 Z MySQL DA Releases
 
+  3.0alpha2
+
+    Moved DBPool instantiation from factory() to connect() to better facilitate
+    API backwards compatibility.
+
+    Changed all default values on keyword aruments for the auto create db
+    feature. They all now default to True.
+
+    Left in a bit of debugging code that disabled the new create_db
+    functionality. Removed it.
+
   3.0alpha1
 
     Note that there are some changes in the internal API. So if you have
