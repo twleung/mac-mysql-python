@@ -102,7 +102,7 @@ def manage_addZMySQLConnection(self, id, title,
                                 connection_string,
                                 check=None,
                                 use_unicode=False,
-                                auto_create_db=False,
+                                auto_create_db=True,
                                 REQUEST=None):
     """Add a DB connection to a folder"""
     use_unicode = bool(use_unicode)
@@ -184,7 +184,7 @@ class Connection(DABase.Connection):
 
     def __init__(self, id, title, connection_string, check,
                     use_unicode=False,
-                    auto_create_db=False):
+                    auto_create_db=True):
         """ Instance setup. Optionally opens the connection (check arg).
         """
         self.use_unicode = bool(use_unicode)
@@ -201,7 +201,7 @@ class Connection(DABase.Connection):
     def manage_edit(self, title, connection_string,
                     check=None,
                     use_unicode=False,
-                    auto_create_db=False):
+                    auto_create_db=True):
         """ Zope management API.
         """
         self.use_unicode = bool(use_unicode)
