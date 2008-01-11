@@ -497,13 +497,13 @@ class DB(TM):
             if ((not force_reconnect) and \
                     (self._mysql_lock or self._transactions)) or \
                     m[0] not in hosed_connection:
-                LOG.error('query failed: %s' % (query,))
+                LOG.warning('query failed: %s' % (query,))
                 raise
             # Hm. maybe the db is hosed.  Let's restart it.
             self._forceReconnection()
             self.db.query(query)
         except ProgrammingError:
-            LOG.error('query failed: %s' % (query,))
+            LOG.warning('query failed: %s' % (query,))
             raise
         return self.db.store_result()
 
