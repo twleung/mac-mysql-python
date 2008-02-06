@@ -168,8 +168,10 @@ class DBPool(object):
     """
 
     connected_timestamp = ''
+    _create_db          = False
+    use_unicode         = False
 
-    def __init__(self, db_cls, create_db=False):
+    def __init__(self, db_cls, create_db=False, use_unicode=False):
         """ Set transaction managed DB class for use in pool.
         """
         self.DB = db_cls
@@ -178,6 +180,8 @@ class DBPool(object):
         self._db_lock = allocate_lock()
         # auto-create db if not present on server
         self._create_db = create_db
+        # unicode settings
+        self.use_unicode = use_unicode
 
     def __call__(self, connection):
         """
@@ -188,7 +192,7 @@ class DBPool(object):
         self.connection = connection
         DB = self.DB
         #
-        db_flags = DB._parse_connection_string(connection)
+        db_flags = DB._parse_connection_string(connection, self.use_unicode)
         self._db_flags = db_flags
 
         # connect to server to determin tranasactional capabilities
@@ -201,7 +205,10 @@ class DBPool(object):
                 db = kw_args.pop('db',None)
                 if not db: raise
                 connection = MySQLdb.connect(**kw_args)
-                connection.query("create database %s" % db)
+                create_query = "create database %s" % db
+                if self.use_unicode:
+                    create_query += " default character set %s" % DB.unicode_charset
+                connection.query(create_query)
                 connection.store_result()
             else:
                 raise
@@ -225,12 +232,6 @@ class DBPool(object):
         # return self as the database connection object 
         # (assigned to _v_database_connection)
         return self
-
-    def setUnicode(self, use_unicode):
-        """ Store unicode settings to be passed along to DB instances
-            in pool.
-        """
-        self._use_unicode = use_unicode
 
     def closeConnection(self):
         """ Close this threads connection. Used when DA is being reused
@@ -279,7 +280,6 @@ class DBPool(object):
         db = self._pool_get(ident)
         if db is None:
             db = self.DB(**self._db_flags)
-            db.setUnicode(self._use_unicode)
             self._pool_set(ident, db)
         return getattr(db, method_id)(*args, **kw)
 
@@ -294,6 +294,9 @@ class DBPool(object):
 
     def string_literal(self, *args, **kw):
         return self._access_db(method_id='string_literal', args=args, kw=kw)
+
+    def unicode_literal(self, *args, **kw):
+        return self._access_db(method_id='unicode_literal', args=args, kw=kw)
 
 
 class DB(TM):
@@ -315,9 +318,10 @@ class DB(TM):
     conv[FIELD_TYPE.DATE] = DateTime_or_None
     conv[FIELD_TYPE.DECIMAL] = float
     del conv[FIELD_TYPE.TIME]
-    del conv[FIELD_TYPE.BLOB]
 
     _p_oid=_p_changed=_registered=None
+
+    unicode_charset    = 'utf8' # hardcoded for now
 
     def __init__(self, connection=None, kw_args=None, use_TM=None,
             mysql_lock=None, transactions=None):
@@ -344,7 +348,7 @@ class DB(TM):
         self.db = db
 
     @classmethod
-    def _parse_connection_string(cls, connection):
+    def _parse_connection_string(cls, connection, use_unicode=False):
         """ Done as a class method to both allow access to class attribute
             conv (conversion) settings while allowing for wrapping pool class
             use of this method. The former is important to allow for subclasses
@@ -354,6 +358,9 @@ class DB(TM):
         """
         kw_args = {'conv':cls.conv}
         flags = {'kw_args':kw_args, 'connection':connection}
+        if use_unicode:
+            kw_args['use_unicode'] = use_unicode
+            kw_args['charset']     = self.unicode_charset
         items = connection.split()
         flags['use_TM'] = None
         if _mysql.get_client_info()[0] >= '5':
@@ -391,30 +398,6 @@ class DB(TM):
                 kw_args['unix_socket'], items = items[0], items[1:]
 
         return flags
-
-    def setUnicode(self, use_unicode):
-        """ Turn on unicode support. Changes several of the conv (converters)
-            to use python's unicode type rather than strings.
-        """
-        if use_unicode:
-            # Update the converters on the unicode object
-            def u(s):
-                return s.decode('UTF8')
-            self.conv[FIELD_TYPE.STRING] = u
-            self.conv[FIELD_TYPE.VAR_STRING] = u
-            # conflicts with removal of blob converter which was done in
-            # revision 375 "for compatibility with MySQLdb-1.0.0 and newer."
-            #self.conv[FIELD_TYPE.BLOB].insert(-1, (None, u))
-        else:
-            # Remove these elements - by default they should not be present
-            if self.conv.has_key(FIELD_TYPE.STRING):
-                del self.conv[FIELD_TYPE.STRING]
-            if self.conv.has_key(FIELD_TYPE.VAR_STRING):
-                del self.conv[FIELD_TYPE.VAR_STRING]
-            self.conv[FIELD_TYPE.BLOB] = [
-                (FLAG.BINARY, char_array),
-                (None, None),
-            ]
 
     def tables(self, rdb=0,
                _care=('TABLE', 'VIEW')):

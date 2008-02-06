@@ -160,18 +160,19 @@ class Connection(DABase.Connection):
             if connection is not None:
                 connection.closeConnection()
             DB = self.factory()
-            DB = DBPool(DB, create_db=self.auto_create_db)
+            DB = DBPool(DB, create_db=self.auto_create_db,
+                    use_unicode=self.use_unicode)
             database_connection_pool_lock.acquire()
             try:
                 database_connection_pool[pool_key] = connection = DB(s)
             finally:
                 database_connection_pool_lock.release()
             self._v_database_connection = connection
-            connection.setUnicode(self.use_unicode)
             # XXX If date is used as such, it can be wrong because an 
             # existing connection may be reused. But this is suposedly
             # only used as a marker to know if connection was successfull.
             self._v_connected = connection.connected_timestamp
+
         return self
         
     def sql_quote__(self, v, escapes={}):
