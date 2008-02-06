@@ -97,15 +97,15 @@ if _v < MySQLdb_version_required:
         "ZMySQLDA requires at least MySQLdb %s, %s found" % \
         (MySQLdb_version_required, _v)
 
-from MySQLdb.converters import conversions, char_array
-from MySQLdb.constants import FIELD_TYPE, CR, ER, CLIENT, FLAG
+from MySQLdb.converters import conversions
+from MySQLdb.constants import FIELD_TYPE, CR, ER, CLIENT
 from Shared.DC.ZRDB.TM import TM
 from ZODB.POSException import ConflictError
 from DateTime import DateTime
 
+from thread import get_ident, allocate_lock
 import logging
 LOG = logging.getLogger('ZMySQLDA')
-from thread import get_ident, allocate_lock
 
 hosed_connection = (
     CR.SERVER_GONE_ERROR,
@@ -184,10 +184,12 @@ class DBPool(object):
         self.use_unicode = use_unicode
 
     def __call__(self, connection):
-        """
-          Parse the connection string.
-          Initiate a trial connection with the database to check
-          transactionality once instead of once per DB instance.
+        """ Parse the connection string.
+
+            Initiate a trial connection with the database to check
+            transactionality once instead of once per DB instance.
+
+            Create database if option is enabled and database doesn't exist.
         """
         self.connection = connection
         DB = self.DB
@@ -207,7 +209,8 @@ class DBPool(object):
                 connection = MySQLdb.connect(**kw_args)
                 create_query = "create database %s" % db
                 if self.use_unicode:
-                    create_query += " default character set %s" % DB.unicode_charset
+                    create_query += (" default character set %s"
+                            % DB.unicode_charset)
                 connection.query(create_query)
                 connection.store_result()
             else:
@@ -215,7 +218,7 @@ class DBPool(object):
         transactional = connection.server_capabilities & CLIENT.TRANSACTIONS
         connection.close()
 
-        # Some tweaks to db_flags based on server setup
+        # Some tweaks to transaction/locking db_flags based on server setup
         if db_flags['try_transactions'] == '-':
             transactional = False
         elif not transactional and db_flags['try_transactions'] == '+':
@@ -254,6 +257,8 @@ class DBPool(object):
         self._db_pool = {}
 
     def _pool_set(self, key, value):
+        """ Add a db to pool.
+        """
         self._db_lock.acquire()
         try:
             self._db_pool[key] = value
@@ -261,9 +266,13 @@ class DBPool(object):
             self._db_lock.release()
 
     def _pool_get(self, key):
+        """ Get db from pool. Read only, no lock necessary.
+        """
         return self._db_pool.get(key)
 
     def _pool_del(self, key):
+        """ Remove db from pool.
+        """
         self._db_lock.acquire()
         try:
             del self._db_pool[key]
@@ -283,6 +292,7 @@ class DBPool(object):
             self._pool_set(ident, db)
         return getattr(db, method_id)(*args, **kw)
 
+    # Passthrough aliases for methods on DB class.
     def tables(self, *args, **kw):
         return self._access_db(method_id='tables', args=args, kw=kw)
 
@@ -325,11 +335,11 @@ class DB(TM):
 
     def __init__(self, connection=None, kw_args=None, use_TM=None,
             mysql_lock=None, transactions=None):
-        self.connection = connection # backwards compat
-        self._kw_args = kw_args
-        self._mysql_lock = mysql_lock
-        self._use_TM = use_TM
-        self._transactions = transactions
+        self.connection     = connection # backwards compat
+        self._kw_args       = kw_args
+        self._mysql_lock    = mysql_lock
+        self._use_TM        = use_TM
+        self._transactions  = transactions
         self._forceReconnection()
 
     def close(self):
@@ -341,11 +351,12 @@ class DB(TM):
     __del__ = close
 
     def _forceReconnection(self):
+        """ (Re)Connect to database.
+        """
         try: # try to clean up first
             self.db.close()
         except: pass
-        db = MySQLdb.connect(**self._kw_args)
-        self.db = db
+        self.db = MySQLdb.connect(**self._kw_args)
 
     @classmethod
     def _parse_connection_string(cls, connection, use_unicode=False):
