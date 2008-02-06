@@ -360,7 +360,7 @@ class DB(TM):
         flags = {'kw_args':kw_args, 'connection':connection}
         if use_unicode:
             kw_args['use_unicode'] = use_unicode
-            kw_args['charset']     = self.unicode_charset
+            kw_args['charset']     = cls.unicode_charset
         items = connection.split()
         flags['use_TM'] = None
         if _mysql.get_client_info()[0] >= '5':
