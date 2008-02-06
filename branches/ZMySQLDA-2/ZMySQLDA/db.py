@@ -533,9 +533,7 @@ class DB(TM):
     def unicode_literal(self, s):
         """ Similar to string_literal but encodes it first.
         """
-        if type(s) == unicode:
-            s = s.encode('UTF8')
-        return self.string_literal(s)
+        return self.db.unicode_literal(s)
 
     # Zope 2-phase transaction handling methods
     def _begin(self, *ignored):
