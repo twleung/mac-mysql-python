@@ -260,11 +260,7 @@ class DBPool(object):
             self._db_lock.release()
 
     def _pool_get(self, key):
-        self._db_lock.acquire()
-        try:
-            return self._db_pool.get(key)
-        finally:
-            self._db_lock.release()
+        return self._db_pool.get(key)
 
     def _pool_del(self, key):
         self._db_lock.acquire()
