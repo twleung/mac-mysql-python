@@ -1,5 +1,16 @@
 Z MySQL DA Releases
 
+  3.0alpha3
+
+    Unicode support now works!
+    Unicode support reworked to use MySQLdb's unicode support instead of its
+        own half-baked layer.
+    Minor cleanups and extensions to database introspection methods.
+    Minor cleanups/fixes to dtml.
+    Removed a few unnecessary thread locks.
+    Changed failed query logging entries from errors to warnings.
+    
+
   3.0alpha2
 
     Moved DBPool instantiation from factory() to connect() to better facilitate
