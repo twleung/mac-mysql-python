@@ -528,7 +528,7 @@ class DB(TM):
         self._use_TM and self._register()
         desc=None
         result=()
-        for qs in filter(None, map(str.strip,query_string.split('\0'))):
+        for qs in filter(None, [q.strip() for q in query_string.split('\0')]):
             qtype = qs.split(None, 1)[0].upper()
             if qtype == "SELECT" and max_rows:
                 qs = "%s LIMIT %d" % (qs,max_rows)
