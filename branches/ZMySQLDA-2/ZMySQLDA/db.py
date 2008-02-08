@@ -279,20 +279,15 @@ class DBPool(object):
         finally:
             self._db_lock.release()
 
-    def _access_db(self, method_id, args, kw):
+    def name(self):
+        """ Return name of database connected to.
         """
-          Generic method to call pooled objects' methods.
-          When the current thread had never issued any call, create a DB
-          instance.
-        """
-        ident = get_ident()
-        db = self._pool_get(ident)
-        if db is None:
-            db = self.DB(**self._db_flags)
-            self._pool_set(ident, db)
-        return getattr(db, method_id)(*args, **kw)
+        return self._db_flags['kw_args']['db']
 
     # Passthrough aliases for methods on DB class.
+    def variables(self, *args, **kw):
+        return self._access_db(method_id='variables', args=args, kw=kw)
+
     def tables(self, *args, **kw):
         return self._access_db(method_id='tables', args=args, kw=kw)
 
@@ -307,6 +302,19 @@ class DBPool(object):
 
     def unicode_literal(self, *args, **kw):
         return self._access_db(method_id='unicode_literal', args=args, kw=kw)
+
+    def _access_db(self, method_id, args, kw):
+        """
+          Generic method to call pooled objects' methods.
+          When the current thread had never issued any call, create a DB
+          instance.
+        """
+        ident = get_ident()
+        db = self._pool_get(ident)
+        if db is None:
+            db = self.DB(**self._db_flags)
+            self._pool_set(ident, db)
+        return getattr(db, method_id)(*args, **kw)
 
 
 class DB(TM):
@@ -419,7 +427,8 @@ class DB(TM):
         result = self._query("SHOW TABLES")
         row = result.fetch_row(1)
         while row:
-            a({'TABLE_NAME': row[0][0], 'TABLE_TYPE': 'TABLE'})
+            table_name = row[0][0]
+            a({'table_name': table_name, 'table_type': 'table'})
             row = result.fetch_row(1)
         return r
 
@@ -434,39 +443,55 @@ class DB(TM):
         r=[]
         for Field, Type, Null, Key, Default, Extra in c.fetch_row(0):
             info = {}
-            field_default = Default and "DEFAULT %s"%Default or ''
-            if Default: info['Default'] = Default
+            field_default = ''
+            if Default is not None:
+                info['default'] = Default
+                field_default = "DEFAULT '%s'" % Default
             if '(' in Type:
                 end = Type.rfind(')')
                 short_type, size = Type[:end].split('(',1)
                 if short_type not in ('set','enum'):
                     if ',' in size:
-                        info['Scale'], info['Precision'] = \
+                        info['scale'], info['precision'] = \
                                        map(int, size.split(',',1))
                     else:
-                        info['Scale'] = int(size)
+                        info['scale'] = int(size)
             else:
                 short_type = Type
             if short_type in field_icons:
-                info['Icon'] = short_type
+                info['icon'] = short_type
             else:
-                info['Icon'] = icon_xlate.get(short_type, "what")
-            info['Name'] = Field
-            info['Type'] = type_xlate.get(short_type,'string')
-            info['Extra'] = Extra,
-            info['Description'] = ' '.join([Type, field_default, Extra or '',
+                info['icon'] = icon_xlate.get(short_type, "what")
+            info['name'] = Field
+            info['type'] = short_type
+            info['extra'] = Extra,
+            info['description'] = ' '.join([Type, field_default, Extra or '',
                                         key_types.get(Key, Key or ''),
-                                        Null != 'YES' and 'NOT NULL' or '']),
-            info['Nullable'] = (Null == 'YES') and 1 or 0
+                                        Null != 'NULL' and 'NOT NULL' or ''])
+            info['nullable'] = (Null == 'YES') and 1 or 0
             if Key:
-                info['Index'] = 1
+                info['index'] = True
+                info['key'] = Key
             if Key == 'PRI':
-                info['PrimaryKey'] = 1
-                info['Unique'] = 1
+                info['primary_key'] = True
+                info['unique'] = True
             elif Key == 'UNI':
-                info['Unique'] = 1
+                info['unique'] = True
             r.append(info)
         return r
+
+    def variables(self):
+        """ Return dictionary of current mysql variable/values.
+        """
+        try:
+            # variable_name, value
+            variables = self._query('SHOW VARIABLES')
+        except:
+            return {}
+        results = {}
+        for name, value in variables.fetch_row(0):
+            results[name] = value
+        return results
 
     def _query(self, query, force_reconnect=False):
         """

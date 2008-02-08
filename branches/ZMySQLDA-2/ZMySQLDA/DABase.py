@@ -105,15 +105,19 @@ class Connection(Shared.DC.ZRDB.Connection.Connection):
         
     def tpValues(self):
         r=[]
-        c=self._v_database_connection
+        try:
+            c = self._v_database_connection
+        except AttributeError:
+            self.connect(self.connection_string)
+            c = self._v_database_connection
         for d in c.tables(rdb=0):
             try:
-                name=d['TABLE_NAME']
-                b=TableBrowser()
-                b.__name__=name
-                b._d=d
-                b._c=c
-                b.icon=table_icons.get(d['TABLE_TYPE'],'text')
+                name = d['table_name']
+                b = TableBrowser()
+                b.__name__ = name
+                b._d = d
+                b._c = c
+                b.icon = table_icons.get(d['table_type'],'text')
                 r.append(b)
             except:
                 pass
@@ -132,12 +136,12 @@ class values:
     def __getitem__(self, i):
         try: return self._d[i]
         except AttributeError: pass
-        self._d=self._f()
+        self._d = self._f()
         return self._d[i]
 
 class TableBrowser(Browser, Acquisition.Implicit):
     icon='what'
-    Description=check=''
+    description=check=''
     info=HTMLFile('table_info',globals())
 
     def tpValues(self):
@@ -151,29 +155,29 @@ class TableBrowser(Browser, Acquisition.Implicit):
         for d in self._c.columns(tname):
             b=ColumnBrowser()
             b._d=d
-            b.icon=d['Icon']
-            b.TABLE_NAME=tname
+            b.icon=d['icon']
+            b.table_name=tname
             r.append(b)
         return r
             
-    def tpId(self): return self._d['TABLE_NAME']
-    def tpURL(self): return "Table/%s" % self._d['TABLE_NAME']
-    def Name(self): return self._d['TABLE_NAME']
-    def Type(self): return self._d['TABLE_TYPE']
+    def tpId(self): return self._d['table_name']
+    def tpURL(self): return "Table/%s" % self._d['table_name']
+    def name(self): return self._d['table_name']
+    def type(self): return self._d['table_type']
 
 class ColumnBrowser(Browser):
     icon='field'
 
     def check(self):
         return ('\t<input type=checkbox name="%s.%s">' %
-                (self.TABLE_NAME, self._d['Name']))
-    def tpId(self): return self._d['Name']
-    def tpURL(self): return "Column/%s" % self._d['Name']
-    def Description(self): return " %s" % self._d['Description']
+                (self.table_name, self._d['name']))
+    def tpId(self): return self._d['name']
+    def tpURL(self): return "Column/%s" % self._d['name']
+    def description(self): return " %s" % self._d['description']
 
 table_icons={
-    'TABLE': 'table',
-    'VIEW':'view',
-    'SYSTEM_TABLE': 'stable',
+    'table': 'table',
+    'view':'view',
+    'system_table': 'stable',
     }
 
