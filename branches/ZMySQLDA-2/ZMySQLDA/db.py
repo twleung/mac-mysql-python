@@ -389,7 +389,7 @@ class DB(TM):
             if lockreq[0] == "*":
                 flags['mysql_lock'] = lockreq[1:]
                 db_host, items = items[0], items[1:]
-                flags['use_TM'] = True
+                flags['use_TM'] = True # redundant. eliminate?
             else:
                 flags['mysql_lock'] = None
                 db_host = lockreq
@@ -584,7 +584,6 @@ class DB(TM):
                 self._query("SELECT GET_LOCK('%s',0)" % self._mysql_lock)
         except:
             LOG.error("exception during _begin", exc_info=True)
-            self._tlock.release()
             raise ConflictError
 
     def _finish(self, *ignored):
