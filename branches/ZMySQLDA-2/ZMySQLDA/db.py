@@ -88,7 +88,8 @@ __version__='$Revision$'[11:-2]
 
 import _mysql
 import MySQLdb
-from _mysql_exceptions import OperationalError, NotSupportedError, ProgrammingError
+from _mysql_exceptions import (OperationalError, NotSupportedError,
+        ProgrammingError)
 MySQLdb_version_required = (1,2,0)
 
 _v = getattr(_mysql, 'version_info', (0,0,0))
@@ -99,13 +100,13 @@ if _v < MySQLdb_version_required:
 
 from MySQLdb.converters import conversions
 from MySQLdb.constants import FIELD_TYPE, CR, ER, CLIENT
-from Shared.DC.ZRDB.TM import TM
 from ZODB.POSException import ConflictError
 from DateTime import DateTime
 
 from thread import get_ident, allocate_lock
 import logging
 LOG = logging.getLogger('ZMySQLDA')
+from joinTM import joinTM
 
 hosed_connection = (
     CR.SERVER_GONE_ERROR,
@@ -317,7 +318,7 @@ class DBPool(object):
         return getattr(db, method_id)(*args, **kw)
 
 
-class DB(TM):
+class DB(joinTM):
 
     Database_Error=_mysql.Error
 
@@ -483,15 +484,9 @@ class DB(TM):
     def variables(self):
         """ Return dictionary of current mysql variable/values.
         """
-        try:
-            # variable_name, value
-            variables = self._query('SHOW VARIABLES')
-        except:
-            return {}
-        results = {}
-        for name, value in variables.fetch_row(0):
-            results[name] = value
-        return results
+        # variable_name, value
+        variables = self._query('SHOW VARIABLES')
+        return dict((name, value) for name, value in variables.fetch_row(0))
 
     def _query(self, query, force_reconnect=False):
         """
@@ -536,8 +531,7 @@ class DB(TM):
             c = self._query(qs)
             if desc is not None:
                 if c and (c.describe() != desc):
-                    # XXX change to use ProgrammingError class
-                    raise 'Query Error', (
+                    raise ProgrammingError(
                         'Multiple select schema are not allowed'
                         )
             if c:

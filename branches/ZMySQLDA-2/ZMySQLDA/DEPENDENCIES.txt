@@ -1,5 +1,5 @@
 * Python MySQLdb 1.2.1 or newer
-* Zope 2.7.0 or newer
+* Zope 2.8.0 or newer
 * MySQL 3.23.32 or newer
   - see your MySQLdb README for more details
 
