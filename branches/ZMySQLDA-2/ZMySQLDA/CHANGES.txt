@@ -1,5 +1,11 @@
 Z MySQL DA Releases
 
+  3.0alpha4
+
+    Fixed pernicious corner case bug with joining a transaction after the
+    transaction has started and been aborted.
+    Zope dependency raised to Zope-2.8 or newer.
+
   3.0alpha3
 
     Unicode support now works!

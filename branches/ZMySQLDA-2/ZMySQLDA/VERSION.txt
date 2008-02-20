@@ -1,1 +1,1 @@
-ZMySQLDA 3.0alpha3
+ZMySQLDA 3.0alpha4
