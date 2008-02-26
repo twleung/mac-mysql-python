@@ -92,14 +92,18 @@ from _mysql_exceptions import (OperationalError, NotSupportedError,
         ProgrammingError)
 MySQLdb_version_required = (1,2,0)
 
-_v = getattr(_mysql, 'version_info', (0,0,0))
-if _v < MySQLdb_version_required:
+try:
+    MySQLdb_version = MySQLdb.version_info[:3]
+except AttributeError:
+    MySQLdb_version = getattr(_mysql, 'version_info', (0,0,0))
+
+if MySQLdb_version < MySQLdb_version_required:
     raise NotSupportedError, \
         "ZMySQLDA requires at least MySQLdb %s, %s found" % \
         (MySQLdb_version_required, _v)
 
 from MySQLdb.converters import conversions
-from MySQLdb.constants import FIELD_TYPE, CR, ER, CLIENT
+from MySQLdb.constants import FIELD_TYPE, CR, ER, CLIENT, FLAG
 from ZODB.POSException import ConflictError
 from DateTime import DateTime
 
@@ -337,6 +341,11 @@ class DB(joinTM):
     conv[FIELD_TYPE.DATE] = DateTime_or_None
     conv[FIELD_TYPE.DECIMAL] = float
     del conv[FIELD_TYPE.TIME]
+    # compatibility/fix for older mysqldb versions
+    # without this you can get character arrays for some values
+    # eg. group_concat()
+    if MySQLdb_version < (1, 2, 2):
+        conv[FIELD_TYPE.BLOB][0] = (FLAG.BINARY, str)
 
     _p_oid=_p_changed=_registered=None
 
