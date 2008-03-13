@@ -173,15 +173,20 @@ class Connection(DABase.Connection):
             # only used as a marker to know if connection was successfull.
             self._v_connected = connection.connected_timestamp
 
-        return self
+        return self # ??? why doesn't this return the connection ???
         
     def sql_quote__(self, v, escapes={}):
         """ Base API. Used to message strings for use in queries.
         """
+        try:
+            connection = self._v_database_connection
+        except AttributeError:
+            self.connect(self.connection_string)
+            connection = self._v_database_connection
         if self.use_unicode:
-            return self._v_database_connection.unicode_literal(v)
+            return connection.unicode_literal(v)
         else:
-            return self._v_database_connection.string_literal(v)
+            return connection.string_literal(v)
 
     def __init__(self, id, title, connection_string, check,
                     use_unicode=False,
