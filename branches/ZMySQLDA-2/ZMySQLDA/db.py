@@ -375,6 +375,10 @@ class DB(joinTM):
             self.db.close()
         except: pass
         self.db = MySQLdb.connect(**self._kw_args)
+        # Newer mysqldb requires ping argument to attmept a reconnect.
+        # This setting is persistent, so only needed once per connection.
+        if MySQLdb_version >= (1, 2, 2):
+            self.db.ping(True)
 
     @classmethod
     def _parse_connection_string(cls, connection, use_unicode=False):
