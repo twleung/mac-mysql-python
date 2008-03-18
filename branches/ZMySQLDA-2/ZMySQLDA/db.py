@@ -507,7 +507,7 @@ class DB(joinTM):
           It reconnects automaticaly if needed and the following conditions are
           met:
            - It has not just tried to reconnect (ie, this function will not
-             attemp to connect twice per call).
+             attempt to connect twice per call).
            - This conection is not transactionnal and has set no MySQL locks,
              because they are bound to the connection. This check can be
              overridden by passing force_reconnect with True value.
