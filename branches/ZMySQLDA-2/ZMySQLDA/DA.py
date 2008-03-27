@@ -183,7 +183,7 @@ class Connection(DABase.Connection):
         except AttributeError:
             self.connect(self.connection_string)
             connection = self._v_database_connection
-        if self.use_unicode:
+        if self.use_unicode and isinstance(v, unicode):
             return connection.unicode_literal(v)
         else:
             return connection.string_literal(v)
