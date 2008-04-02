@@ -93,7 +93,7 @@ from db import DBPool, DB
 from thread import allocate_lock
 
 import DABase
-from ImageFile import ImageFile
+from App.ImageFile import ImageFile
 import Globals
 
 manage_addZMySQLConnectionForm=Globals.HTMLFile('connectionAdd',globals())
