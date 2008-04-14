@@ -112,10 +112,12 @@ import logging
 LOG = logging.getLogger('ZMySQLDA')
 from joinTM import joinTM
 
-hosed_connection = (
-    CR.SERVER_GONE_ERROR,
-    CR.SERVER_LOST
-    )
+hosed_connection = {
+        CR.SERVER_GONE_ERROR:    "Server gone.",
+        CR.SERVER_LOST:          "Server lost.",
+        CR.COMMANDS_OUT_OF_SYNC: ("Commands out of sync. Possibly a misplaced"
+            " semicolon (;) in a query."),
+    }
 
 query_syntax_error = (
     ER.BAD_FIELD_ERROR,
@@ -148,7 +150,7 @@ type_xlate = {
     "timestamp": "datetime", "datetime": "datetime",
     "time": "datetime",
     }
-    
+
 def _mysql_timestamp_converter(s):
     if len(s) < 14:
         s = s + "0"*(14-len(s))
@@ -523,10 +525,16 @@ class DB(joinTM):
                 LOG.warning('query failed: %s' % (query,))
                 raise
             # Hm. maybe the db is hosed.  Let's restart it.
+            if m[0] in hosed_connection:
+                LOG.error('%s Forcing a reconnect.' % hosed_connection[m[0]])
             self._forceReconnection()
             self.db.query(query)
-        except ProgrammingError:
-            LOG.warning('query failed: %s' % (query,))
+        except ProgrammingError, m:
+            if m[0] in hosed_connection:
+                self._forceReconnection()
+                LOG.error('%s Forcing a reconnect.' % hosed_connection[m[0]])
+            else:
+                LOG.warning('query failed: %s' % (query,))
             raise
         return self.db.store_result()
 
