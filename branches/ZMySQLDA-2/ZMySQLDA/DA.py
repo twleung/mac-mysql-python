@@ -101,12 +101,10 @@ manage_addZMySQLConnectionForm=Globals.HTMLFile('connectionAdd',globals())
 def manage_addZMySQLConnection(self, id, title,
                                 connection_string,
                                 check=None,
-                                use_unicode=False,
-                                auto_create_db=True,
+                                use_unicode=None,
+                                auto_create_db=None,
                                 REQUEST=None):
     """Add a DB connection to a folder"""
-    use_unicode = bool(use_unicode)
-    auto_create_db = bool(auto_create_db)
     self._setObject(id,
             Connection(id, title, connection_string, check,
                 use_unicode=use_unicode,
@@ -189,12 +187,14 @@ class Connection(DABase.Connection):
             return connection.string_literal(v)
 
     def __init__(self, id, title, connection_string, check,
-                    use_unicode=False,
-                    auto_create_db=True):
+                    use_unicode=None,
+                    auto_create_db=None):
         """ Instance setup. Optionally opens the connection (check arg).
         """
-        self.use_unicode = bool(use_unicode)
-        self.auto_create_db = bool(auto_create_db)
+        if use_unicode is not None:
+            self.use_unicode = bool(use_unicode)
+        if auto_create_db is not None:
+            self.auto_create_db = bool(auto_create_db)
         return DABase.Connection.__init__(self, id, title, connection_string,
             check)
 
@@ -206,12 +206,14 @@ class Connection(DABase.Connection):
 
     def manage_edit(self, title, connection_string,
                     check=None,
-                    use_unicode=False,
-                    auto_create_db=True):
+                    use_unicode=None,
+                    auto_create_db=None):
         """ Zope management API.
         """
-        self.use_unicode = bool(use_unicode)
-        self.auto_create_db = bool(auto_create_db)
+        if use_unicode is not None:
+            self.use_unicode = bool(use_unicode)
+        if auto_create_db is not None:
+            self.auto_create_db = bool(auto_create_db)
         return DABase.Connection.manage_edit(self, title, connection_string,
                     check=None)
 
