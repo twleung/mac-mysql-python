@@ -90,7 +90,7 @@ import _mysql
 import MySQLdb
 from _mysql_exceptions import (OperationalError, NotSupportedError,
         ProgrammingError)
-MySQLdb_version_required = (1,2,0)
+MySQLdb_version_required = (1,2,1)
 
 try:
     MySQLdb_version = MySQLdb.version_info[:3]
@@ -329,8 +329,8 @@ class DB(joinTM):
     Database_Error=_mysql.Error
 
     defs={
-        FIELD_TYPE.CHAR: "i", FIELD_TYPE.DATE: "d",
-        FIELD_TYPE.DATETIME: "d", FIELD_TYPE.DECIMAL: "n",
+        FIELD_TYPE.CHAR: "i", FIELD_TYPE.DATE: "d", FIELD_TYPE.DATETIME: "d",
+        FIELD_TYPE.DECIMAL: "n", FIELD_TYPE.NEWDECIMAL: "n",
         FIELD_TYPE.DOUBLE: "n", FIELD_TYPE.FLOAT: "n", FIELD_TYPE.INT24: "i",
         FIELD_TYPE.LONG: "i", FIELD_TYPE.LONGLONG: "l",
         FIELD_TYPE.SHORT: "i", FIELD_TYPE.TIMESTAMP: "d",
@@ -342,6 +342,7 @@ class DB(joinTM):
     conv[FIELD_TYPE.DATETIME] = DateTime_or_None
     conv[FIELD_TYPE.DATE] = DateTime_or_None
     conv[FIELD_TYPE.DECIMAL] = float
+    conv[FIELD_TYPE.NEWDECIMAL] = float
     del conv[FIELD_TYPE.TIME]
     # compatibility/fix for older mysqldb versions
     # without this you can get character arrays for some values
