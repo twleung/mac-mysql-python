@@ -89,7 +89,6 @@ __version__='$Revision$'[11:-2]
 
 import DA
 
-methods=DA.folder_methods
 misc_=DA.misc_
 
 def initialize(context):
