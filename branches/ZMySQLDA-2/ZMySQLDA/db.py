@@ -562,6 +562,10 @@ class DB(joinTM):
             else:
                 desc=None
 
+            if qtype == "CALL":
+                # For stored procedures, skip the status result
+                self.db.next_result()
+
         if desc is None: return (),()
 
         items=[]
