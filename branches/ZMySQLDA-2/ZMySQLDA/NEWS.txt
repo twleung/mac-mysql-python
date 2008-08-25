@@ -1,13 +1,8 @@
 ZMySQLDA 3.0
 
-Initial release of an extensively reworked Zope adapter. This is an alpha
-release due to the limited testing it has so far undergone and that there are a
-couple areas that could probably use a bit more attention. 
+Release of an extensively reworked MySQL Zope2 adapter.
 
-If you test this release and find any problems please file bugs in the sf.net
-tracker [1]. The roadmap to a stable release depends on the feedback I get on
-this (and following) releases. Without feedback it will depend on my and my
-company's schedule for testing. 
+If you find any problems please file bugs in the sf.net tracker [1]. 
 
 [1] http://sourceforge.net/tracker/?group_id=22307&atid=374932
 

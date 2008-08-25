@@ -1,6 +1,20 @@
 Z MySQL DA Releases
 
+  3.0rc1
+
+    Added condition to handle connection getting "out of sync". This can occur
+    when, for instance, you get a stray semicolon in a query. When a connection
+    gets in this state it is hosed and must be closed and reconnected.
+
+    Made some changes to how use_unicode and auto_create_db are set to better
+    allow for subclassing and extensions of the base classes.
+
+    Added handling of NEWDECIMAL which was added for mysql 5.0.
+
+    Added basic support for procedure calls using "CALL" query.
+
   3.0beta1
+
     Fixed issue with sql_quote__ getting called prior to connection being made.
     Fixed bug #1916952. Updating to API change in MySQLdb 1.2.2 ping method.
     Fixed backwards compatibility issue with MySQLdb versions <= 1.2.1.
