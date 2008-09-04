@@ -49,6 +49,8 @@ Z MySQL DA Releases
 
   3.0alpha1
 
+    New maintainer: John Eikenberry <jae@zhar.net>
+
     Note that there are some changes in the internal API. So if you have
     subclassed you should double check compatibility.
 

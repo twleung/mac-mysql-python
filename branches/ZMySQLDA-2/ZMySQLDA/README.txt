@@ -1,7 +1,7 @@
 Z MySQL DA
 
   This is the Z MySQL database adapter product for the 
-  Z Object Publishing Environment.
+  Z Object Publishing Environment (ZOPE) version 2.
   
   ** NOTE **
 
