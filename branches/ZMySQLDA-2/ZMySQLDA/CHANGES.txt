@@ -1,6 +1,8 @@
 Z MySQL DA Releases
 
-  3.0rc1
+  3.0
+
+    Added setuptools support to create an egg package thanks to Brett Carter.
 
     Added condition to handle connection getting "out of sync". This can occur
     when, for instance, you get a stray semicolon in a query. When a connection
