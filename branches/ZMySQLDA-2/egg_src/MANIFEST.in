@@ -1,0 +1,3 @@
+include Products/ZMySQLDA/*.txt Products/ZMySQLDA/*.dtml
+recursive-include Products/ZMySQLDA/icons *.gif
+recursive-include Products/ZMySQLDA/help *.py
