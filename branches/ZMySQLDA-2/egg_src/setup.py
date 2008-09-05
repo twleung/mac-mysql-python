@@ -12,7 +12,7 @@ setup(
     url="http://sourceforge.net/projects/mysql-python",
     description="MySQL Zope2 adapter.",
     long_description=("MySQL Database Adapter for Zope 2. Extensively "
-        "reworked for stability and compatibility with versions 2.8+ and 
+        "reworked for stability and compatibility with versions 2.8+ and "
         "modern MySQL versions. New features from auto-creating database "
         "to limited Unicode support."),
     packages=find_packages(),
