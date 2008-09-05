@@ -6,3 +6,19 @@ If you find any problems please file bugs in the sf.net tracker [1].
 
 [1] http://sourceforge.net/tracker/?group_id=22307&atid=374932
 
+** Warning **
+
+As of MySQL-python version 1.2.2 there is a bug if you use unicode set the
+database to use a binary (*_bin) collation (eg. utf8_bin). With a binary
+collation it won't return the data correctly from the database. That is it
+won't return it as unicode, instead always as bytestrings.
+
+Bug #1693363 if you want to check the status.
+
+https://sourceforge.net/tracker/index.php?func=detail&aid=1693363&group_id=22307&atid=374932
+
+The only workaround is to not use a binary collation.
+
+If you are curious about why you'd want use a binary collation, it is to allow
+for case insensitive searching.
+
