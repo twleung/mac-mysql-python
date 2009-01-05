@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="Products.ZMySQLDA",
-    version="3.0",
+    version="3.1",
     license="Zope Public License (ZPL) Version 1.0",
     author="John Eikenberry",
     author_email="jae@zhar.net",
