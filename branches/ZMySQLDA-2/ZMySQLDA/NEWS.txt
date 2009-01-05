@@ -1,4 +1,4 @@
-ZMySQLDA 3.0
+ZMySQLDA 3.1
 
 Release of an extensively reworked MySQL Zope2 adapter.
 

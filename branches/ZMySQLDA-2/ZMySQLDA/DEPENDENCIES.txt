@@ -2,4 +2,5 @@
 * Zope 2.8.0 or newer (though not the 3.x series)
 * MySQL 3.23.32 or newer
   - see your MySQLdb README for more details
+  - 5.0.3 or newer for savepoint support
 
