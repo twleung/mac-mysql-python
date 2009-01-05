@@ -388,7 +388,7 @@ class DB(joinTM):
         """ Done as a class method to both allow access to class attribute
             conv (conversion) settings while allowing for wrapping pool class
             use of this method. The former is important to allow for subclasses
-            to override the conv settings while the latter is important so 
+            to override the conv settings while the latter is important so
             the connection string doesn't have to be parsed for each instance
             in the pool.
         """
@@ -633,4 +633,35 @@ class DB(joinTM):
             self._query("ROLLBACK")
         else:
             LOG.error("aborting when non-transactional")
+
+    def savepoint(self):
+        """ Basic savepoint support.
+
+            Raise AttributeErrors to trigger optimistic savepoint handling
+            in zope's transaction code.
+        """
+        if self.variables().get('version') < '5.0.2':
+            # mysql supports savepoints in versions 5.0.3+
+            LOG.error("Savepoints unsupported with Mysql < 5.0.3")
+            raise AttributeError
+
+        if not self._transaction_begun:
+            LOG.error("Savepoint used outside of transaction.")
+            raise AttributeError
+
+        import time
+        return _SavePoint(self, str(time.time()).replace('.','sp'))
+
+
+class _SavePoint(object):
+    """ Simple savepoint object
+    """
+    def __init__(self, dm, ident):
+        dm._query("SAVEPOINT %s" % ident)
+        self.dm = dm
+        self.ident = ident
+
+    def rollback(self):
+        self.dm._query("ROLLBACK TO %s" % self.ident)
+
 
