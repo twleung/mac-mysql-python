@@ -86,6 +86,7 @@
 '''$Id$'''
 __version__='$Revision$'[11:-2]
 
+import time
 import _mysql
 import MySQLdb
 from _mysql_exceptions import (OperationalError, NotSupportedError,
@@ -649,17 +650,16 @@ class DB(joinTM):
             LOG.error("Savepoint used outside of transaction.")
             raise AttributeError
 
-        import time
-        return _SavePoint(self, str(time.time()).replace('.','sp'))
+        return _SavePoint(self)
 
 
 class _SavePoint(object):
     """ Simple savepoint object
     """
-    def __init__(self, dm, ident):
-        dm._query("SAVEPOINT %s" % ident)
+    def __init__(self, dm):
         self.dm = dm
-        self.ident = ident
+        self.ident = ident = str(time.time()).replace('.','sp')
+        dm._query("SAVEPOINT %s" % ident)
 
     def rollback(self):
         self.dm._query("ROLLBACK TO %s" % self.ident)
