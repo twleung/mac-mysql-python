@@ -635,15 +635,24 @@ class DB(joinTM):
         else:
             LOG.error("aborting when non-transactional")
 
+    def _mysql_version(self):
+        """ Return mysql server version.
+            Note instances of this class are not persistent.
+        """
+        _version = getattr(self, '_version', None)
+        if not _version:
+            self._version = _version = self.variables().get('version')
+        return _version
+
     def savepoint(self):
         """ Basic savepoint support.
 
             Raise AttributeErrors to trigger optimistic savepoint handling
             in zope's transaction code.
         """
-        if self.variables().get('version') < '5.0.2':
+        if self._mysql_version() < '5.0.2':
             # mysql supports savepoints in versions 5.0.3+
-            LOG.error("Savepoints unsupported with Mysql < 5.0.3")
+            LOG.warning("Savepoints unsupported with Mysql < 5.0.3")
             raise AttributeError
 
         if not self._transaction_begun:
