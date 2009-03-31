@@ -1,5 +1,6 @@
 import os
 import sys
+import platform
 
 def dequote(s):
     """This dequote() business is required for some older versions of
@@ -22,7 +23,11 @@ def mysql_config(what):
         if ret/256 > 1:
             raise EnvironmentError("%s not found" % (mysql_config.path,))
     return data
-mysql_config.path = "mysql_config"
+
+if platform.uname()[0] == 'Darwin':
+    mysql_config.path = "/usr/local/mysql/bin/mysql_config"
+else:
+    mysql_config.path = "mysql_config"
 
 def get_config():
     from setup_common import get_metadata_and_options, enabled, create_release_file
